@@ -65,6 +65,14 @@
           <option value="TWN">TWN</option>
         </select>
       </div>
+
+      <div>
+        <label>Language（必填）</label>
+        <select id="lang">
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+        </select>
+      </div>
     </div>
 
     <div class="actions">
@@ -94,11 +102,9 @@
     </div>
   </div>
 
-  <!-- QR 產生器：使用一個輕量 CDN -->
   <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
 
   <script>
-    // ====== 你只要改這一行：貼上 Apps Script Web App URL ======
     const API_URL = "https://script.google.com/a/*/macros/s/AKfycbwmyiF0Gk8LnSedX6K1OB05X2Uh4v2LU2CpI4SHfNcVUY-1VJTL6u4i9-QADAp-1ROq/exec";
 
     const $ = (id) => document.getElementById(id);
@@ -107,7 +113,6 @@
     const btn = $("btn");
     const copyBtn = $("copyBtn");
 
-    // 預設日期：今天（美東也沒差，都是 date picker 值）
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth()+1).padStart(2,'0');
@@ -128,24 +133,6 @@
     function clearMsg() {
       msg.className = "";
       msg.textContent = "";
-    }
-
-    function renderQuestions(selected) {
-      const box = $("qList");
-      box.innerHTML = "";
-      selected.forEach((q, idx) => {
-        const div = document.createElement("div");
-        div.className = "qItem";
-        div.innerHTML = `
-          <div class="tag">${q.type} · ${q.question_id}</div>
-          <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${idx+1}. ${escapeHtml(q["題目"] || "")}</div>
-          <div class="muted" style="margin-bottom:10px;">回答提示：${escapeHtml(q["回答"] || "")}</div>
-          <hr style="border:none;border-top:1px solid #eee;margin:10px 0;">
-          <div style="font-size:16px; font-weight:700; margin-bottom:6px;">${escapeHtml(q["Question"] || "")}</div>
-          <div class="muted">Answer prompt: ${escapeHtml(q["Answer"] || "")}</div>
-        `;
-        box.appendChild(div);
-      });
     }
 
     function escapeHtml(s) {
@@ -184,6 +171,33 @@
       });
     }
 
+    function renderQuestions(selected, lang) {
+      const box = $("qList");
+      box.innerHTML = "";
+
+      const isZh = (lang === "zh");
+
+      selected.forEach((q, idx) => {
+        const div = document.createElement("div");
+        div.className = "qItem";
+
+        if (isZh) {
+          div.innerHTML = `
+            <div class="tag">${escapeHtml(q.type)} · ${escapeHtml(q.question_id)}</div>
+            <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${idx+1}. ${escapeHtml(q["題目"] || "")}</div>
+            <div class="muted">回答提示：${escapeHtml(q["回答"] || "")}</div>
+          `;
+        } else {
+          div.innerHTML = `
+            <div class="tag">${escapeHtml(q.type)} · ${escapeHtml(q.question_id)}</div>
+            <div style="font-size:18px; font-weight:700; margin-bottom:6px;">${idx+1}. ${escapeHtml(q["Question"] || "")}</div>
+            <div class="muted">Answer prompt: ${escapeHtml(q["Answer"] || "")}</div>
+          `;
+        }
+
+        box.appendChild(div);
+      });
+    }
 
     async function startTrial() {
       clearMsg();
@@ -193,14 +207,11 @@
       const username = $("username").value.trim();
       const date = $("date").value.trim();
       const location = $("location").value.trim();
+      const lang = $("lang").value.trim();
       const passcode = $("passcode").value.trim();
 
-      if (!username || !date || !location) {
-        setMsg("error", "請先填完 username / date / location。");
-        return;
-      }
-      if (!API_URL || API_URL.includes("PUT_YOUR")) {
-        setMsg("error", "尚未設定 API_URL。請在程式碼中貼上 Apps Script Web App URL。");
+      if (!username || !date || !location || !lang) {
+        setMsg("error", "請先填完 username / date / location / language。");
         return;
       }
 
@@ -208,19 +219,12 @@
       btn.textContent = "Generating...";
 
       try {
-        // const res = await fetch(API_URL, {
-        //   method: "POST",
-        //   headers: { "Content-Type": "text/plain;charset=utf-8" },
-        //   body: JSON.stringify({ username, date, location, passcode })
-        // });
-
-        // const data = await res.json();
-
         const data = await jsonp(API_URL, {
           action: "startTrial",
           username,
           date,
           location,
+          lang,
           passcode,
           _: Date.now()
         });
@@ -234,7 +238,7 @@
         $("trialIndex").textContent = trialIndex;
         qr.value = trialIndex;
 
-        renderQuestions(data.selected || []);
+        renderQuestions(data.selected || [], lang);
         result.style.display = "block";
         setMsg("ok", "成功：已生成 index、抽題並寫入 log。");
 
